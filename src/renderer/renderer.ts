@@ -71,18 +71,31 @@ export class Renderer {
 		ctx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
 		await renderCallback(new RenderContext(ctx, true, false));
 
-		const url = downloadCanvas.toDataURL();
 
 		if (undefined === window.navigator.msSaveOrOpenBlob) {
-			const e = document.createElement('a');
-			e.setAttribute('href', url);
-			e.setAttribute('download', filename);
-			document.body.appendChild(e);
-			e.click();
-			document.body.removeChild(e);
+			const a = document.createElement('a');
+			a.setAttribute('download', filename);
+			if (!window.URL || !window.createObjectURL) {
+				const url = downloadCanvas.toDataURL();
+				a.setAttribute('href', url);
+			} else {
+				url = downloadCanvas.toDataURL();
+			}
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
 		} else {
+			let blob;
+			if (downloadCanvas.msToBlob) {
+				blob = downloadCanvas.msToBlob();
+			} else if (downloadCanvas.toBlob) {
+				blob = downloadCanvas.toBlob();
+			} else if (downloadCanvas.toBlob) {
+				const url = downloadCanvas.toDataURL();
+				blob = this.dataURItoBlob(url);
+			}
 			// IE-specific code
-			window.navigator.msSaveBlob(this.dataURItoBlob(url), filename);
+			window.navigator.msSaveBlob(blob, filename);
 		}
 
 		return url;
@@ -95,6 +108,15 @@ export class Renderer {
 	}
 
 	private dataURItoBlob(dataURI: string) {
+		const binStr = atob(dataURI.split(',')[1]),
+		      len = binStr.length,
+		      arr = new Uint8Array(len);
+
+		for (var i = 0; i < len; i++) {
+		    arr[i] = binStr.charCodeAt(i);
+		}
+
+		return new Blob([arr]);
 		const binary = atob(dataURI.split(',')[1]);
 		const array = [];
 		for (let i = 0; i < binary.length; i++) {
